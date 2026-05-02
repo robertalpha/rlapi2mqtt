@@ -1,7 +1,7 @@
 .PHONY: build clean
 
-BINARY_NAME=rla-companion.exe
-CMD_PATH=./cmd/rla-companion
+BINARY_NAME=rlapi2mqtt.exe
+CMD_PATH=./cmd/rlapi2mqtt
 LDFLAGS=-s -w -H=windowsgui
 
 build:

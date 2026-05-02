@@ -16,11 +16,18 @@ func NewMQTTClient() *MQTTClient {
 	return &MQTTClient{}
 }
 
-func (m *MQTTClient) Connect(brokerURL string) error {
+func (m *MQTTClient) Connect(brokerURL, username, password string) error {
 	opts := mqtt.NewClientOptions().
 		AddBroker(brokerURL).
-		SetClientID(fmt.Sprintf("rla-companion-%d", rand.Intn(90000)+10000)).
+		SetClientID(fmt.Sprintf("rlapi2mqtt-%d", rand.Intn(90000)+10000)).
 		SetConnectTimeout(5 * time.Second)
+
+	if username != "" {
+		opts.SetUsername(username)
+	}
+	if password != "" {
+		opts.SetPassword(password)
+	}
 
 	m.client = mqtt.NewClient(opts)
 	token := m.client.Connect()
@@ -45,4 +52,16 @@ func (m *MQTTClient) Disconnect() {
 
 func (m *MQTTClient) IsConnected() bool {
 	return m.client != nil && m.client.IsConnected()
+}
+
+func (m *MQTTClient) Publish(topic string, payload []byte) error {
+	if m.client == nil || !m.client.IsConnected() {
+		return fmt.Errorf("not connected to broker")
+	}
+	token := m.client.Publish(topic, 0, false, payload)
+	token.WaitTimeout(2 * time.Second)
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("publish failed: %w", err)
+	}
+	return nil
 }
