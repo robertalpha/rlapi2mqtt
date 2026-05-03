@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -20,21 +19,18 @@ type Companion struct {
 	onStatus         StatusCallback
 	onConnState      ConnectionStateCallback
 	topicPrefix      string
-	logMessages      bool
-	logFile          *os.File
 	cancel           context.CancelFunc
 	limitUpdateState bool
 	lastUpdateState  time.Time
 }
 
-func NewCompanion(broker port.BrokerClient, game port.GameClient, logMessages bool) *Companion {
+func NewCompanion(broker port.BrokerClient, game port.GameClient) *Companion {
 	return &Companion{
 		broker:      broker,
 		game:        game,
 		onStatus:    func(string) {},
 		onConnState: func(bool, bool) {},
 		topicPrefix: "rlapi2mqtt",
-		logMessages: logMessages,
 	}
 }
 
@@ -50,15 +46,6 @@ func (c *Companion) StartLoop(brokerURL, username, password, rlAddress string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
-	if c.logMessages {
-		f, err := os.OpenFile("messages.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			c.onStatus(fmt.Sprintf("Failed to open messages.log: %s", err.Error()))
-		} else {
-			c.logFile = f
-		}
-	}
-
 	go c.connectLoop(ctx, brokerURL, username, password, rlAddress)
 }
 
@@ -69,10 +56,6 @@ func (c *Companion) StopLoop() {
 	}
 	c.game.Disconnect()
 	c.broker.Disconnect()
-	if c.logFile != nil {
-		c.logFile.Close()
-		c.logFile = nil
-	}
 	c.onConnState(false, false)
 	c.onStatus("Disconnected")
 }
@@ -137,11 +120,6 @@ func (c *Companion) handleGameEvent(event port.GameEvent) {
 		preview = preview[:120] + "..."
 	}
 	c.onStatus(fmt.Sprintf("[%s] %s", event.Event, preview))
-
-	if c.logFile != nil {
-		c.logFile.Write(event.Data)
-		c.logFile.Write([]byte("\n"))
-	}
 
 	err := c.broker.Publish(topic, event.Data)
 	if err != nil {

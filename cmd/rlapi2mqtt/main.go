@@ -21,7 +21,6 @@ func main() {
 
 	mqttClient := broker.NewMQTTClient()
 	gameClient := game.NewRLClient()
-	logMessages := os.Getenv("LOG_MESSAGES") == "true"
-	companion := service.NewCompanion(mqttClient, gameClient, logMessages)
+	companion := service.NewCompanion(mqttClient, gameClient)
 	gui.Run(companion, cfg)
 }
