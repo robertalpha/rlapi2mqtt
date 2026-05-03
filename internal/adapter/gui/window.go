@@ -18,6 +18,11 @@ type Config struct {
 	RLAddress    string
 }
 
+const (
+	compactHeight  = 210
+	expandedHeight = 430
+)
+
 type MainWindow struct {
 	wnd            *ui.Main
 	lblBroker      *ui.Static
@@ -73,7 +78,7 @@ func (w *MainWindow) create(cfg Config) {
 	w.wnd = ui.NewMain(
 		ui.OptsMain().
 			Title("rlapi2mqtt").
-			Size(ui.Dpi(460, 430)),
+			Size(ui.Dpi(460, compactHeight)),
 	)
 
 	w.lblBroker = ui.NewStatic(
@@ -228,12 +233,32 @@ func (w *MainWindow) appendLog(msg string) {
 func (w *MainWindow) setLogVisible(visible bool) {
 	w.showLogs = visible
 	if visible {
+		w.resizeWindow(expandedHeight)
 		w.lblLog.Hwnd().ShowWindow(co.SW_SHOWNORMAL)
 		w.txtLog.Hwnd().ShowWindow(co.SW_SHOWNORMAL)
 	} else {
 		w.lblLog.Hwnd().ShowWindow(co.SW_HIDE)
 		w.txtLog.Hwnd().ShowWindow(co.SW_HIDE)
+		w.resizeWindow(compactHeight)
 	}
+}
+
+func (w *MainWindow) resizeWindow(clientHeight int) {
+	hwnd := w.wnd.Hwnd()
+	windowRect, _ := hwnd.GetWindowRect()
+	clientRect, _ := hwnd.GetClientRect()
+
+	chromeWidth := (windowRect.Right - windowRect.Left) - (clientRect.Right - clientRect.Left)
+	chromeHeight := (windowRect.Bottom - windowRect.Top) - (clientRect.Bottom - clientRect.Top)
+
+	newW := int32(ui.DpiX(460)) + chromeWidth
+	newH := int32(ui.DpiY(clientHeight)) + chromeHeight
+
+	hwnd.SetWindowPos(0,
+		win.POINT{},
+		win.SIZE{Cx: newW, Cy: newH},
+		co.SWP_NOMOVE|co.SWP_NOZORDER|co.SWP_NOACTIVATE,
+	)
 }
 
 func (w *MainWindow) updateStatus(mqttOk, rlOk bool) {
