@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	godotenv.Load("rlapi2mqtt.ini")
+	godotenv.Overload("rlapi2mqtt.ini")
 
 	cfg := gui.Config{
 		MQTTUrl:      os.Getenv("MQTT_URL"),

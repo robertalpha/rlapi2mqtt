@@ -77,13 +77,13 @@ func Run(companion *service.Companion, cfg Config) {
 		})
 	})
 
-	if cfg.AutoConnect {
-		w.wnd.On().WmShowWindow(func(p ui.WmShowWindow) {
-			if w.chkAutoConnect.IsChecked() {
-				w.connect()
-			}
-		})
-	}
+	autoConnected := false
+	w.wnd.On().WmShowWindow(func(p ui.WmShowWindow) {
+		if !autoConnected && w.chkAutoConnect.IsChecked() {
+			autoConnected = true
+			w.connect()
+		}
+	})
 
 	w.wnd.RunAsMain()
 }
@@ -196,15 +196,13 @@ func (w *MainWindow) create(cfg Config) {
 			Size(ui.Dpi(110, 15)),
 	)
 
-	w.chkAutoConnect = ui.NewCheckBox(
-		w.wnd,
-		ui.OptsCheckBox().
-			Text("Auto connect").
-			Position(ui.Dpi(340, 155)),
-	)
+	chkAutoConnectOpts := ui.OptsCheckBox().
+		Text("Auto connect").
+		Position(ui.Dpi(290, 165))
 	if cfg.AutoConnect {
-		w.chkAutoConnect.SetCheck(true)
+		chkAutoConnectOpts.State(co.BST_CHECKED)
 	}
+	w.chkAutoConnect = ui.NewCheckBox(w.wnd, chkAutoConnectOpts)
 
 	w.chkShowLogs = ui.NewCheckBox(
 		w.wnd,
@@ -302,6 +300,7 @@ func (w *MainWindow) updateStatus(mqttOk, rlOk bool) {
 	} else {
 		w.lblRLStatus.SetTextAndResize("RL: Disconnected")
 	}
+	w.wnd.Hwnd().InvalidateRect(nil, true)
 }
 
 func (w *MainWindow) connect() {
