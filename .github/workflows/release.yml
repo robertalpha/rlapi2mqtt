@@ -1,0 +1,21 @@
+on: 
+  release:
+    types: [created]
+
+jobs:
+  releases-matrix:
+    name: Release Go Binary
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: wangyoucao577/go-release-action@v1.55
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: windows
+        goarch: amd64
+        build_flags: "-trimpath"
+        project_path: "./cmd/rlapi2mqtt"
+        binary_name: "rlapi2mqtt.exe"
+        ldflags: "-s -w -H=windowsgui"
+        extra_files: README.md
+        executable_compression: true
