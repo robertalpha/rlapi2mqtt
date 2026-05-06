@@ -51,8 +51,10 @@ func (r *RLClient) Connect(address string, onEvent port.GameEventCallback) error
 func (r *RLClient) readLoop(onEvent port.GameEventCallback) {
 	defer func() {
 		r.mu.Lock()
-		r.conn.Close()
-		r.conn = nil
+		if r.conn != nil {
+			r.conn.Close()
+			r.conn = nil
+		}
 		r.closed = true
 		r.mu.Unlock()
 	}()

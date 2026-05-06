@@ -37,7 +37,6 @@ type MainWindow struct {
 	lblGameWS      *ui.Static
 	txtGameWS      *ui.Edit
 	btnConnect     *ui.Button
-	btnDisconnect  *ui.Button
 	btnSaveConfig  *ui.Button
 	lblMQTTStatus  *ui.Static
 	lblRLStatus    *ui.Static
@@ -48,6 +47,7 @@ type MainWindow struct {
 	txtLog         *ui.Edit
 	logBuffer      []string
 	showLogs       bool
+	connected      bool
 	companion      *service.Companion
 }
 
@@ -164,19 +164,11 @@ func (w *MainWindow) create(cfg Config) {
 			Width(ui.DpiX(100)),
 	)
 
-	w.btnDisconnect = ui.NewButton(
-		w.wnd,
-		ui.OptsButton().
-			Text("&Disconnect").
-			Position(ui.Dpi(340, 62)).
-			Width(ui.DpiX(100)),
-	)
-
 	w.btnSaveConfig = ui.NewButton(
 		w.wnd,
 		ui.OptsButton().
 			Text("&Save Config").
-			Position(ui.Dpi(340, 132)).
+			Position(ui.Dpi(340, 62)).
 			Width(ui.DpiX(100)),
 	)
 
@@ -291,16 +283,15 @@ func (w *MainWindow) resizeWindow(clientHeight int) {
 
 func (w *MainWindow) updateStatus(mqttOk, rlOk bool) {
 	if mqttOk {
-		w.lblMQTTStatus.SetTextAndResize("MQTT: Connected")
+		w.lblMQTTStatus.Hwnd().SetWindowText("MQTT: Connected")
 	} else {
-		w.lblMQTTStatus.SetTextAndResize("MQTT: Disconnected")
+		w.lblMQTTStatus.Hwnd().SetWindowText("MQTT: Disconnected")
 	}
 	if rlOk {
-		w.lblRLStatus.SetTextAndResize("RL: Connected")
+		w.lblRLStatus.Hwnd().SetWindowText("RL: Connected")
 	} else {
-		w.lblRLStatus.SetTextAndResize("RL: Disconnected")
+		w.lblRLStatus.Hwnd().SetWindowText("RL: Disconnected")
 	}
-	w.wnd.Hwnd().InvalidateRect(nil, true)
 }
 
 func (w *MainWindow) connect() {
@@ -318,6 +309,14 @@ func (w *MainWindow) connect() {
 
 	w.appendLog("Starting connection loop...")
 	w.companion.StartLoop(brokerURL, username, password, gameAddr)
+	w.connected = true
+	w.btnConnect.Hwnd().SetWindowText("Disconnect")
+}
+
+func (w *MainWindow) disconnect() {
+	w.companion.StopLoop()
+	w.connected = false
+	w.btnConnect.Hwnd().SetWindowText("Connect")
 }
 
 func (w *MainWindow) saveConfig() {
@@ -344,11 +343,11 @@ func (w *MainWindow) saveConfig() {
 
 func (w *MainWindow) events() {
 	w.btnConnect.On().BnClicked(func() {
-		w.connect()
-	})
-
-	w.btnDisconnect.On().BnClicked(func() {
-		w.companion.StopLoop()
+		if w.connected {
+			w.disconnect()
+		} else {
+			w.connect()
+		}
 	})
 
 	w.btnSaveConfig.On().BnClicked(func() {

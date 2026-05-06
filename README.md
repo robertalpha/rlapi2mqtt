@@ -13,18 +13,44 @@ An example consumer is [rocketleague-announcer](https://github.com/robertalpha/r
 ```
                                                           ┌─────────────────────────┐
                                                      ┌───>│    eventlogger          │
-                                                     │    │    (consumer)           │
+                                                     │    │    (example consumer)   │
 ┌────────────────┐ WebSocket ┌────────────┐  MQTT  ┌─┴──┐ └─────────────────────────┘
 │ Rocket League  │──────────>│ rlapi2mqtt │───────>│MQTT│
 │     Game       │  :49123   │ (this app) │        │    │ ┌─────────────────────────┐
 └────────────────┘           └────────────┘        └─┬──┘ │ rocketleague-announcer  │
-                                                     │    │    (consumer)           │
+                                                     │    │    (example consumer)   │
                                                      └───>└─────────────────────────┘
 ```
 
 ## Screenshot
 
-![rlapi2mqtt](rlapi2mqtt_screenshot.png)
+![rlapi2mqtt](docs/rlapi2mqtt_screenshot.png)
+
+## How to Use
+
+This guide assumes you have a running MQTT broker, for instance [Eclipse Mosquitto](https://mosquitto.org/), with valid credentials.
+
+### 1. Enable the Rocket League Stats API
+
+Follow the instructions on the [Rocket League Stats API page](https://www.rocketleague.com/en/developer/stats-api) to enable the socket:
+
+1. On Steam, right-click Rocket League -> Manage -> Browse Local Files
+   ![Browse local files](docs/steam_screenshot.png)
+2. Navigate to `TAGame/Config/`
+3. Open `DefaultStatsAPI.ini` with a text editor and set `PacketSendRate=4` (anything 1 or higher works, but keeping it under 10 is recommended for performance)
+4. Save the file
+
+The Stats API socket is now open to connections from `rlapi2mqtt` when the Rocket League game is running (restart if already running).
+
+### 2. Download rlapi2mqtt
+
+Download the latest release from [GitHub Releases](https://github.com/robertalpha/rlapi2mqtt/releases).
+
+Extract the zip and run `rlapi2mqtt.exe` from the same PC where Rocket League is running.
+
+### 3. Connect
+
+Fill in the MQTT broker URL and credentials, then press **Connect**. The application will connect to both the MQTT broker and Rocket League's Stats API socket. Check the **Auto connect** checkbox and press **Save Config** to automatically connect on next startup.
 
 ## Configuration
 
