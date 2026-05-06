@@ -22,4 +22,3 @@ jobs:
         binary_name: "rlapi2mqtt"
         ldflags: "-s -w -H=windowsgui"
         extra_files: README.md
-        executable_compression: upx
