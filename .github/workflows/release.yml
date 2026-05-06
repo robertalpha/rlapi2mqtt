@@ -15,7 +15,7 @@ jobs:
         goarch: amd64
         build_flags: "-trimpath"
         project_path: "./cmd/rlapi2mqtt"
-        binary_name: "rlapi2mqtt.exe"
+        binary_name: "rlapi2mqtt"
         ldflags: "-s -w -H=windowsgui"
         extra_files: README.md
-        executable_compression: true
+        executable_compression: upx
