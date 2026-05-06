@@ -115,11 +115,7 @@ func (c *Companion) handleGameEvent(event port.GameEvent) {
 
 	topic := fmt.Sprintf("%s/%s", c.topicPrefix, strings.ToLower(event.Event))
 
-	preview := string(event.Data)
-	if len(preview) > 120 {
-		preview = preview[:120] + "..."
-	}
-	c.onStatus(fmt.Sprintf("[%s] %s", event.Event, preview))
+	c.onStatus(fmt.Sprintf("[%s] %s", event.Event, event.Data))
 
 	err := c.broker.Publish(topic, event.Data)
 	if err != nil {

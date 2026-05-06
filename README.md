@@ -28,13 +28,14 @@ An example consumer is [rocketleague-announcer](https://github.com/robertalpha/r
 
 ## Configuration
 
-You can use the UI to configure. To use it on next startup use the `Save config` button to store the credentials in a  `rlapi2mqtt.ini` in the same directory.
+You can use the UI to configure. To use it on next startup use the `Save config` button to store the credentials in a `rlapi2mqtt.ini` in the same directory.
 
 ```ini
 MQTT_URL=tcp://localhost:1883
 MQTT_USERNAME=user
 MQTT_PASSWORD=password
 RL_ADDRESS=127.0.0.1:49123
+AUTO_CONNECT=false
 ```
 
 All fields can also be filled in through the GUI at runtime.
@@ -48,3 +49,7 @@ make build
 ```
 
 This produces `rlapi2mqtt.exe`.
+
+## Reference
+
+This project is inspired by the end-of-life Bakkes Plugin RL2MQTT made by Janoz-NL found here: [RL2MQTT](https://github.com/Janoz-NL/RL2MQTT)
