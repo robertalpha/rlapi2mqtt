@@ -1,23 +1,25 @@
 # rlapi2mqtt
 
-A lightweight Windows desktop application that bridges the Rocket League Stats API WebSocket to an MQTT broker.
+A lightweight Windows desktop application that bridges the [Rocket League Stats API](https://www.rocketleague.com/en/developer/stats-api) WebSocket to an MQTT broker.
 
 It connects to the game's local WebSocket, receives real-time events (goals, demolitions, stat updates, etc.) and publishes them to configurable MQTT topics under `rlapi2mqtt/`.
+
+This way you can easily consume the events in other applications, for example to trigger announcements or other actions.
+
+An example consumer is [rocketleague-announcer](https://github.com/robertalpha/rocketleague-announcer).
 
 ## Communication Flow
 
 ```
-┌──────────────┐  WebSocket   ┌──────────────┐   MQTT      ┌──────────────┐
-│ Rocket League│─────────────>│  rlapi2mqtt  │────────────>│  Mosquitto   │
-│    Game      │ :49123       │  (this app)  │             │   Broker     │
-└──────────────┘              └──────────────┘             └──────┬───────┘
-                                                                 │
-                                                                 │ subscribe
-                                                                 v
-                                                          ┌──────────────┐
-                                                          │ rlannouncer  │
-                                                          │  (consumer)  │
-                                                          └──────────────┘
+                                                          ┌─────────────────────────┐
+                                                     ┌───>│    eventlogger          │
+                                                     │    │    (consumer)           │
+┌────────────────┐ WebSocket ┌────────────┐  MQTT  ┌─┴──┐ └─────────────────────────┘
+│ Rocket League  │──────────>│ rlapi2mqtt │───────>│MQTT│
+│     Game       │  :49123   │ (this app) │        │    │ ┌─────────────────────────┐
+└────────────────┘           └────────────┘        └─┬──┘ │ rocketleague-announcer  │
+                                                     │    │    (consumer)           │
+                                                     └───>└─────────────────────────┘
 ```
 
 ## Screenshot
@@ -26,9 +28,9 @@ It connects to the game's local WebSocket, receives real-time events (goals, dem
 
 ## Configuration
 
-Create a `.env` file in the project root (or set environment variables):
+You can use the UI to configure. To use it on next startup use the `Save config` button to store the credentials in a  `rlapi2mqtt.ini` in the same directory.
 
-```env
+```ini
 MQTT_URL=tcp://localhost:1883
 MQTT_USERNAME=user
 MQTT_PASSWORD=password

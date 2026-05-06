@@ -1,6 +1,8 @@
 package gui
 
 import (
+	"fmt"
+	"os"
 	"runtime"
 	"strings"
 
@@ -16,6 +18,7 @@ type Config struct {
 	MQTTUsername string
 	MQTTPassword string
 	RLAddress    string
+	AutoConnect  bool
 }
 
 const (
@@ -35,12 +38,15 @@ type MainWindow struct {
 	txtGameWS      *ui.Edit
 	btnConnect     *ui.Button
 	btnDisconnect  *ui.Button
+	btnSaveConfig  *ui.Button
 	lblMQTTStatus  *ui.Static
 	lblRLStatus    *ui.Static
+	chkAutoConnect *ui.CheckBox
 	chkShowLogs    *ui.CheckBox
 	chkLimitUpdate *ui.CheckBox
 	lblLog         *ui.Static
 	txtLog         *ui.Edit
+	logBuffer      []string
 	showLogs       bool
 	companion      *service.Companion
 }
@@ -70,6 +76,14 @@ func Run(companion *service.Companion, cfg Config) {
 			w.updateStatus(mqttOk, rlOk)
 		})
 	})
+
+	if cfg.AutoConnect {
+		w.wnd.On().WmShowWindow(func(p ui.WmShowWindow) {
+			if w.chkAutoConnect.IsChecked() {
+				w.connect()
+			}
+		})
+	}
 
 	w.wnd.RunAsMain()
 }
@@ -158,6 +172,14 @@ func (w *MainWindow) create(cfg Config) {
 			Width(ui.DpiX(100)),
 	)
 
+	w.btnSaveConfig = ui.NewButton(
+		w.wnd,
+		ui.OptsButton().
+			Text("&Save Config").
+			Position(ui.Dpi(340, 132)).
+			Width(ui.DpiX(100)),
+	)
+
 	w.lblMQTTStatus = ui.NewStatic(
 		w.wnd,
 		ui.OptsStatic().
@@ -173,6 +195,16 @@ func (w *MainWindow) create(cfg Config) {
 			Position(ui.Dpi(340, 112)).
 			Size(ui.Dpi(110, 15)),
 	)
+
+	w.chkAutoConnect = ui.NewCheckBox(
+		w.wnd,
+		ui.OptsCheckBox().
+			Text("Auto connect").
+			Position(ui.Dpi(340, 155)),
+	)
+	if cfg.AutoConnect {
+		w.chkAutoConnect.SetCheck(true)
+	}
 
 	w.chkShowLogs = ui.NewCheckBox(
 		w.wnd,
@@ -209,21 +241,18 @@ func (w *MainWindow) create(cfg Config) {
 }
 
 func (w *MainWindow) appendLog(msg string) {
-	if !w.showLogs {
-		return
-	}
-	current := w.txtLog.Text()
-	if current != "" {
-		current += "\r\n"
-	}
-	newText := current + msg
-
-	lines := strings.Split(newText, "\r\n")
-	if len(lines) > 50 {
-		lines = lines[len(lines)-50:]
-		newText = strings.Join(lines, "\r\n")
+	w.logBuffer = append(w.logBuffer, msg)
+	if len(w.logBuffer) > 100 {
+		w.logBuffer = w.logBuffer[len(w.logBuffer)-100:]
 	}
 
+	if w.showLogs {
+		w.flushLog()
+	}
+}
+
+func (w *MainWindow) flushLog() {
+	newText := strings.Join(w.logBuffer, "\r\n")
 	w.txtLog.SetText(newText)
 	end := len(newText)
 	w.txtLog.SetSelection(end, end)
@@ -236,6 +265,7 @@ func (w *MainWindow) setLogVisible(visible bool) {
 		w.resizeWindow(expandedHeight)
 		w.lblLog.Hwnd().ShowWindow(co.SW_SHOWNORMAL)
 		w.txtLog.Hwnd().ShowWindow(co.SW_SHOWNORMAL)
+		w.flushLog()
 	} else {
 		w.lblLog.Hwnd().ShowWindow(co.SW_HIDE)
 		w.txtLog.Hwnd().ShowWindow(co.SW_HIDE)
@@ -274,26 +304,56 @@ func (w *MainWindow) updateStatus(mqttOk, rlOk bool) {
 	}
 }
 
+func (w *MainWindow) connect() {
+	brokerURL := w.txtBroker.Text()
+	if brokerURL == "" {
+		brokerURL = "tcp://localhost:1883"
+	}
+	gameAddr := w.txtGameWS.Text()
+	if gameAddr == "" {
+		gameAddr = "127.0.0.1:49123"
+	}
+
+	username := strings.TrimSpace(w.txtUser.Text())
+	password := strings.TrimSpace(w.txtPass.Text())
+
+	w.appendLog("Starting connection loop...")
+	w.companion.StartLoop(brokerURL, username, password, gameAddr)
+}
+
+func (w *MainWindow) saveConfig() {
+	autoConnect := "false"
+	if w.chkAutoConnect.IsChecked() {
+		autoConnect = "true"
+	}
+
+	content := fmt.Sprintf("MQTT_URL=%s\nMQTT_USERNAME=%s\nMQTT_PASSWORD=%s\nRL_ADDRESS=%s\nAUTO_CONNECT=%s\n",
+		strings.TrimSpace(w.txtBroker.Text()),
+		strings.TrimSpace(w.txtUser.Text()),
+		strings.TrimSpace(w.txtPass.Text()),
+		strings.TrimSpace(w.txtGameWS.Text()),
+		autoConnect,
+	)
+
+	err := os.WriteFile("rlapi2mqtt.ini", []byte(content), 0644)
+	if err != nil {
+		w.appendLog("Failed to save config: " + err.Error())
+	} else {
+		w.appendLog("Config saved to rlapi2mqtt.ini")
+	}
+}
+
 func (w *MainWindow) events() {
 	w.btnConnect.On().BnClicked(func() {
-		brokerURL := w.txtBroker.Text()
-		if brokerURL == "" {
-			brokerURL = "tcp://localhost:1883"
-		}
-		gameAddr := w.txtGameWS.Text()
-		if gameAddr == "" {
-			gameAddr = "127.0.0.1:49123"
-		}
-
-		username := strings.TrimSpace(w.txtUser.Text())
-		password := strings.TrimSpace(w.txtPass.Text())
-
-		w.appendLog("Starting connection loop...")
-		w.companion.StartLoop(brokerURL, username, password, gameAddr)
+		w.connect()
 	})
 
 	w.btnDisconnect.On().BnClicked(func() {
 		w.companion.StopLoop()
+	})
+
+	w.btnSaveConfig.On().BnClicked(func() {
+		w.saveConfig()
 	})
 
 	w.chkShowLogs.On().BnClicked(func() {
