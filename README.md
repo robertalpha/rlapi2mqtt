@@ -1,4 +1,9 @@
-# rlapi2mqtt
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/rlapi2mqtt_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/rlapi2mqtt_light.png">
+  <img alt="RLapi2MQTT Banner" src="assets/rlapi2mqtt_dark.png">
+</picture>
 
 A lightweight Windows desktop application that bridges the [Rocket League Stats API](https://www.rocketleague.com/en/developer/stats-api) WebSocket to an MQTT broker.
 
