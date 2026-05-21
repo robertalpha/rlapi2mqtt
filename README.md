@@ -45,7 +45,7 @@ Follow the instructions on the [Rocket League Stats API page](https://www.rocket
       ![Browse local files](docs/epic_screenshot_1.png)  
       Click the Folder icon    
       ![Browse local files](docs/epic_screenshot_2.png)  
-   2  *Steam*  
+       *Steam*  
       right-click Rocket League -> Manage -> Browse Local Files    
       ![Browse local files](docs/steam_screenshot.png)
 
