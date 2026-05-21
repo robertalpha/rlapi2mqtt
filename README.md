@@ -2,7 +2,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/rlapi2mqtt_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/rlapi2mqtt_light.png">
-  <img alt="RLapi2MQTT Banner" src="assets/rlapi2mqtt_dark.png">
+  <img alt="RLapi2MQTT Banner" src="docs/rlapi2mqtt_dark.png">
 </picture>
 
 A lightweight Windows desktop application that bridges the [Rocket League Stats API](https://www.rocketleague.com/en/developer/stats-api) WebSocket to an MQTT broker.
@@ -39,8 +39,16 @@ This guide assumes you have a running MQTT broker, for instance [Eclipse Mosquit
 
 Follow the instructions on the [Rocket League Stats API page](https://www.rocketleague.com/en/developer/stats-api) to enable the socket:
 
-1. On Steam, right-click Rocket League -> Manage -> Browse Local Files
-   ![Browse local files](docs/steam_screenshot.png)
+1. Browse to the Rocket League installation folder 
+   1. *Epic*   
+      click Rocket League -> ... -> Manage  
+      ![Browse local files](docs/epic_screenshot_1.png)  
+      Click the Folder icon    
+      ![Browse local files](docs/epic_screenshot_2.png)  
+   2  *Steam*  
+      right-click Rocket League -> Manage -> Browse Local Files    
+      ![Browse local files](docs/steam_screenshot.png)
+
 2. Navigate to `TAGame/Config/`
 3. Open `DefaultStatsAPI.ini` with a text editor and set `PacketSendRate=4` (anything 1 or higher works, but keeping it under 10 is recommended for performance)
 4. Save the file
