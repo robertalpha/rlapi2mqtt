@@ -39,14 +39,14 @@ This guide assumes you have a running MQTT broker, for instance [Eclipse Mosquit
 
 Follow the instructions on the [Rocket League Stats API page](https://www.rocketleague.com/en/developer/stats-api) to enable the socket:
 
-1. Browse to the Rocket League installation folder 
-   1. *Epic*   
-      click Rocket League -> ... -> Manage  
+1. Browse to the Rocket League installation folder (Examples provided for Epic Game Launcher and Steam).
+   1. *Epic Game Launcher*   
+      Click Rocket League -> ... -> Manage  
       ![Browse local files](docs/epic_screenshot_1.png)  
       Click the Folder icon    
       ![Browse local files](docs/epic_screenshot_2.png)  
-       *Steam*  
-      right-click Rocket League -> Manage -> Browse Local Files    
+   2. *Steam*  
+      Right-click Rocket League -> Manage -> Browse Local Files    
       ![Browse local files](docs/steam_screenshot.png)
 
 2. Navigate to `TAGame/Config/`
@@ -63,7 +63,7 @@ Extract the zip and run `rlapi2mqtt.exe` from the same PC where Rocket League is
 
 ### 3. Connect
 
-Fill in the MQTT broker URL and credentials, then press **Connect**. The application will connect to both the MQTT broker and Rocket League's Stats API socket. Check the **Auto connect** checkbox and press **Save Config** to automatically connect on next startup.
+Fill in the MQTT broker URL and credentials. The default settings for Rocket League should work when both run on the same machine. Press **Connect**. The application will connect to both the MQTT broker and Rocket League's Stats API socket. Check the **Auto connect** checkbox and press **Save Config** to automatically connect on next startup.
 
 ## Configuration
 
