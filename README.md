@@ -2,7 +2,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/rlapi2mqtt_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/rlapi2mqtt_light.png">
-  <img alt="RLapi2MQTT Banner" src="assets/rlapi2mqtt_dark.png">
+  <img alt="RLapi2MQTT Banner" src="docs/rlapi2mqtt_dark.png">
 </picture>
 
 A lightweight Windows desktop application that bridges the [Rocket League Stats API](https://www.rocketleague.com/en/developer/stats-api) WebSocket to an MQTT broker.
@@ -39,8 +39,16 @@ This guide assumes you have a running MQTT broker, for instance [Eclipse Mosquit
 
 Follow the instructions on the [Rocket League Stats API page](https://www.rocketleague.com/en/developer/stats-api) to enable the socket:
 
-1. On Steam, right-click Rocket League -> Manage -> Browse Local Files
-   ![Browse local files](docs/steam_screenshot.png)
+1. Browse to the Rocket League installation folder (Examples provided for Epic Game Launcher and Steam).
+   1. *Epic Game Launcher*   
+      Click Rocket League -> ... -> Manage  
+      ![Browse local files](docs/epic_screenshot_1.png)  
+      Click the Folder icon    
+      ![Browse local files](docs/epic_screenshot_2.png)  
+   2. *Steam*  
+      Right-click Rocket League -> Manage -> Browse Local Files    
+      ![Browse local files](docs/steam_screenshot.png)
+
 2. Navigate to `TAGame/Config/`
 3. Open `DefaultStatsAPI.ini` with a text editor and set `PacketSendRate=4` (anything 1 or higher works, but keeping it under 10 is recommended for performance)
 4. Save the file
@@ -55,7 +63,7 @@ Extract the zip and run `rlapi2mqtt.exe` from the same PC where Rocket League is
 
 ### 3. Connect
 
-Fill in the MQTT broker URL and credentials, then press **Connect**. The application will connect to both the MQTT broker and Rocket League's Stats API socket. Check the **Auto connect** checkbox and press **Save Config** to automatically connect on next startup.
+Fill in the MQTT broker URL and credentials. The default settings for Rocket League should work when both run on the same machine. Press **Connect**. The application will connect to both the MQTT broker and Rocket League's Stats API socket. Check the **Auto connect** checkbox and press **Save Config** to automatically connect on next startup.
 
 ## Configuration
 
