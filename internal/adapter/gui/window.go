@@ -1,15 +1,18 @@
 package gui
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
+	"unsafe"
 
 	"github.com/rodrigocfd/windigo/co"
 	"github.com/rodrigocfd/windigo/ui"
 	"github.com/rodrigocfd/windigo/win"
 
+	"rlapi2mqtt/assets"
 	"rlapi2mqtt/internal/service"
 )
 
@@ -22,12 +25,15 @@ type Config struct {
 }
 
 const (
-	compactHeight  = 210
-	expandedHeight = 430
+	bannerHeight   = 40
+	compactHeight  = 210 + bannerHeight
+	expandedHeight = 430 + bannerHeight
+	stmSetImage    = 0x0172 // STM_SETIMAGE message
 )
 
 type MainWindow struct {
 	wnd            *ui.Main
+	imgBanner      *ui.Static
 	lblBroker      *ui.Static
 	txtBroker      *ui.Edit
 	lblUser        *ui.Static
@@ -58,7 +64,7 @@ func Run(companion *service.Companion, cfg Config) {
 		cfg.MQTTUrl = "tcp://localhost:1883"
 	}
 	if cfg.RLAddress == "" {
-		cfg.RLAddress = "127.0.0.1:49123"
+		cfg.RLAddress = "ws://127.0.0.1:49124"
 	}
 
 	w := &MainWindow{companion: companion}
@@ -78,7 +84,12 @@ func Run(companion *service.Companion, cfg Config) {
 	})
 
 	autoConnected := false
+	bannerLoaded := false
 	w.wnd.On().WmShowWindow(func(p ui.WmShowWindow) {
+		if !bannerLoaded {
+			bannerLoaded = true
+			w.loadBanner()
+		}
 		if !autoConnected && w.chkAutoConnect.IsChecked() {
 			autoConnected = true
 			w.connect()
@@ -95,18 +106,28 @@ func (w *MainWindow) create(cfg Config) {
 			Size(ui.Dpi(460, compactHeight)),
 	)
 
+	w.imgBanner = ui.NewStatic(
+		w.wnd,
+		ui.OptsStatic().
+			Position(ui.Dpi(10, 5)).
+			Size(ui.Dpi(197, 30)).
+			CtrlStyle(co.SS_BITMAP),
+	)
+
+	y := bannerHeight // vertical offset for all controls below the banner
+
 	w.lblBroker = ui.NewStatic(
 		w.wnd,
 		ui.OptsStatic().
 			Text("Mosquitto Broker URL").
-			Position(ui.Dpi(10, 12)),
+			Position(ui.Dpi(10, y+12)),
 	)
 
 	w.txtBroker = ui.NewEdit(
 		w.wnd,
 		ui.OptsEdit().
 			Text(cfg.MQTTUrl).
-			Position(ui.Dpi(10, 32)).
+			Position(ui.Dpi(10, y+32)).
 			Width(ui.DpiX(320)),
 	)
 
@@ -114,14 +135,14 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsStatic().
 			Text("Username").
-			Position(ui.Dpi(10, 62)),
+			Position(ui.Dpi(10, y+62)),
 	)
 
 	w.txtUser = ui.NewEdit(
 		w.wnd,
 		ui.OptsEdit().
 			Text(cfg.MQTTUsername).
-			Position(ui.Dpi(10, 82)).
+			Position(ui.Dpi(10, y+82)).
 			Width(ui.DpiX(150)),
 	)
 
@@ -129,14 +150,14 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsStatic().
 			Text("Password").
-			Position(ui.Dpi(170, 62)),
+			Position(ui.Dpi(170, y+62)),
 	)
 
 	w.txtPass = ui.NewEdit(
 		w.wnd,
 		ui.OptsEdit().
 			Text(cfg.MQTTPassword).
-			Position(ui.Dpi(170, 82)).
+			Position(ui.Dpi(170, y+82)).
 			Width(ui.DpiX(150)).
 			CtrlStyle(co.ES_PASSWORD),
 	)
@@ -145,14 +166,14 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsStatic().
 			Text("Rocket League Stats API Address").
-			Position(ui.Dpi(10, 112)),
+			Position(ui.Dpi(10, y+112)),
 	)
 
 	w.txtGameWS = ui.NewEdit(
 		w.wnd,
 		ui.OptsEdit().
 			Text(cfg.RLAddress).
-			Position(ui.Dpi(10, 132)).
+			Position(ui.Dpi(10, y+132)).
 			Width(ui.DpiX(320)),
 	)
 
@@ -160,7 +181,7 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsButton().
 			Text("&Connect").
-			Position(ui.Dpi(340, 32)).
+			Position(ui.Dpi(340, y+32)).
 			Width(ui.DpiX(100)),
 	)
 
@@ -168,7 +189,7 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsButton().
 			Text("&Save Config").
-			Position(ui.Dpi(340, 62)).
+			Position(ui.Dpi(340, y+62)).
 			Width(ui.DpiX(100)),
 	)
 
@@ -176,7 +197,7 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsStatic().
 			Text("MQTT: --").
-			Position(ui.Dpi(340, 95)).
+			Position(ui.Dpi(340, y+95)).
 			Size(ui.Dpi(110, 15)),
 	)
 
@@ -184,13 +205,13 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsStatic().
 			Text("RL: --").
-			Position(ui.Dpi(340, 112)).
+			Position(ui.Dpi(340, y+112)).
 			Size(ui.Dpi(110, 15)),
 	)
 
 	chkAutoConnectOpts := ui.OptsCheckBox().
 		Text("Auto connect").
-		Position(ui.Dpi(290, 165))
+		Position(ui.Dpi(290, y+165))
 	if cfg.AutoConnect {
 		chkAutoConnectOpts.State(co.BST_CHECKED)
 	}
@@ -200,14 +221,14 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsCheckBox().
 			Text("Show logs").
-			Position(ui.Dpi(10, 165)),
+			Position(ui.Dpi(10, y+165)),
 	)
 
 	w.chkLimitUpdate = ui.NewCheckBox(
 		w.wnd,
 		ui.OptsCheckBox().
 			Text("Limit UpdateState 1/s").
-			Position(ui.Dpi(120, 165)).
+			Position(ui.Dpi(120, y+165)).
 			State(co.BST_CHECKED),
 	)
 
@@ -215,14 +236,14 @@ func (w *MainWindow) create(cfg Config) {
 		w.wnd,
 		ui.OptsStatic().
 			Text("Log").
-			Position(ui.Dpi(10, 185)).
+			Position(ui.Dpi(10, y+185)).
 			WndStyle(co.WS_CHILD|co.WS_GROUP),
 	)
 
 	w.txtLog = ui.NewEdit(
 		w.wnd,
 		ui.OptsEdit().
-			Position(ui.Dpi(10, 205)).
+			Position(ui.Dpi(10, y+205)).
 			Width(ui.DpiX(435)).
 			Height(ui.DpiY(190)).
 			CtrlStyle(co.ES_MULTILINE|co.ES_AUTOVSCROLL|co.ES_READONLY|co.ES_NOHIDESEL).
@@ -301,7 +322,7 @@ func (w *MainWindow) connect() {
 	}
 	gameAddr := w.txtGameWS.Text()
 	if gameAddr == "" {
-		gameAddr = "127.0.0.1:49123"
+		gameAddr = "ws://127.0.0.1:49124"
 	}
 
 	username := strings.TrimSpace(w.txtUser.Text())
@@ -362,4 +383,38 @@ func (w *MainWindow) events() {
 	w.chkLimitUpdate.On().BnClicked(func() {
 		w.companion.SetLimitUpdateState(w.chkLimitUpdate.IsChecked())
 	})
+}
+
+func (w *MainWindow) loadBanner() {
+	data := assets.BannerBMP
+	if len(data) < 54 {
+		return
+	}
+
+	// BMP file header: pixel data offset at bytes 10-13
+	pixelOffset := binary.LittleEndian.Uint32(data[10:14])
+
+	// BITMAPINFOHEADER starts at byte 14
+	pBmi := (*win.BITMAPINFO)(unsafe.Pointer(&data[14]))
+
+	hBmp, pBits, err := win.HDC(0).CreateDIBSection(
+		pBmi,
+		co.DIB_COLORS_RGB,
+		win.HFILEMAP(0),
+		0,
+	)
+	if err != nil {
+		return
+	}
+
+	// Copy pixel data into the DIB section
+	pixels := data[pixelOffset:]
+	dst := unsafe.Slice(pBits, len(pixels))
+	copy(dst, pixels)
+
+	w.imgBanner.Hwnd().SendMessage(
+		co.WM(stmSetImage),
+		win.WPARAM(co.IMAGE_BITMAP),
+		win.LPARAM(hBmp),
+	)
 }

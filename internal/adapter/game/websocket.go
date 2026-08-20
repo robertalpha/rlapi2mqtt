@@ -3,10 +3,11 @@ package game
 import (
 	"encoding/json"
 	"fmt"
-	"net"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"rlapi2mqtt/internal/port"
 )
 
@@ -16,7 +17,7 @@ type envelope struct {
 }
 
 type RLClient struct {
-	conn   net.Conn
+	conn   *websocket.Conn
 	mu     sync.Mutex
 	done   chan struct{}
 	closed bool
@@ -24,6 +25,20 @@ type RLClient struct {
 
 func NewRLClient() *RLClient {
 	return &RLClient{}
+}
+
+// NormalizeAddress turns the stored address into a ws:// URL.
+// It accepts both a bare "host:port" (most common, no scheme) and a
+// complete "ws://" or "wss://" URL, defaulting to the WebSocket endpoint.
+func NormalizeAddress(address string) string {
+	addr := strings.TrimSpace(address)
+	if addr == "" {
+		return "ws://127.0.0.1:49124"
+	}
+	if strings.HasPrefix(addr, "ws://") || strings.HasPrefix(addr, "wss://") {
+		return addr
+	}
+	return "ws://" + addr
 }
 
 func (r *RLClient) Connect(address string, onEvent port.GameEventCallback) error {
@@ -34,9 +49,11 @@ func (r *RLClient) Connect(address string, onEvent port.GameEventCallback) error
 		return fmt.Errorf("already connected")
 	}
 
-	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
+	u := NormalizeAddress(address)
+	dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
+	conn, _, err := dialer.Dial(u, nil)
 	if err != nil {
-		return fmt.Errorf("TCP dial failed: %w", err)
+		return fmt.Errorf("WebSocket dial %s failed: %w", u, err)
 	}
 
 	r.conn = conn
@@ -59,8 +76,6 @@ func (r *RLClient) readLoop(onEvent port.GameEventCallback) {
 		r.mu.Unlock()
 	}()
 
-	decoder := json.NewDecoder(r.conn)
-
 	for {
 		select {
 		case <-r.done:
@@ -68,9 +83,16 @@ func (r *RLClient) readLoop(onEvent port.GameEventCallback) {
 		default:
 		}
 
+		// Each WebSocket message is one envelope frame (the new Stats API
+		// WebSocket transport). ReadMessage handles the frame protocol.
+		_, msg, err := r.conn.ReadMessage()
+		if err != nil {
+			return // connection dropped -> companion reconnect loop handles it
+		}
+
 		var env envelope
-		if err := decoder.Decode(&env); err != nil {
-			return
+		if err := json.Unmarshal(msg, &env); err != nil {
+			continue // malformed frame; skip
 		}
 
 		raw, _ := json.Marshal(env)

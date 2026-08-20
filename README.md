@@ -21,7 +21,7 @@ An example consumer is [rocketleague-announcer](https://github.com/robertalpha/r
                                                      │    │    (example consumer)   │
 ┌────────────────┐ WebSocket ┌────────────┐  MQTT  ┌─┴──┐ └─────────────────────────┘
 │ Rocket League  │──────────>│ rlapi2mqtt │───────>│MQTT│
-│     Game       │  :49123   │ (this app) │        │    │ ┌─────────────────────────┐
+│     Game       │  :49124   │ (this app) │        │    │ ┌─────────────────────────┐
 └────────────────┘           └────────────┘        └─┬──┘ │ rocketleague-announcer  │
                                                      │    │    (example consumer)   │
                                                      └───>└─────────────────────────┘
@@ -50,10 +50,16 @@ Follow the instructions on the [Rocket League Stats API page](https://www.rocket
       ![Browse local files](docs/steam_screenshot.png)
 
 2. Navigate to `TAGame/Config/`
-3. Open `DefaultStatsAPI.ini` with a text editor and set `PacketSendRate=4` (anything 1 or higher works, but keeping it under 10 is recommended for performance)
+3. Open `DefaultStatsAPI.ini` with a text editor. Set `PacketSendRate=4` (anything 1 or higher works, but keeping it under 10 is recommended for performance) and make sure the WebSocket port is enabled:
+   ```ini
+   [TAGame.MatchStatsExporter_TA]
+   PacketSendRate=4
+   ; WebSocket port. Leave at the default 49124 (must differ from Port).
+   WebPort=49124
+   ```
 4. Save the file
 
-The Stats API socket is now open to connections from `rlapi2mqtt` when the Rocket League game is running (restart if already running).
+The Stats API WebSocket is now open to connections from `rlapi2mqtt` when the Rocket League game is running (restart if already running).
 
 ### 2. Download rlapi2mqtt
 
@@ -73,11 +79,11 @@ You can use the UI to configure. To use it on next startup use the `Save config`
 MQTT_URL=tcp://localhost:1883
 MQTT_USERNAME=user
 MQTT_PASSWORD=password
-RL_ADDRESS=127.0.0.1:49123
+RL_ADDRESS=ws://127.0.0.1:49124
 AUTO_CONNECT=false
 ```
 
-All fields can also be filled in through the GUI at runtime.
+All fields can also be filled in through the GUI at runtime. `RL_ADDRESS` accepts both a full WebSocket URL (`ws://127.0.0.1:49124`) and a bare `host:port` (`127.0.0.1:49124`, the `ws://` prefix is added automatically).
 
 ## Build
 
