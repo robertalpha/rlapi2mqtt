@@ -25,15 +25,19 @@ type Config struct {
 }
 
 const (
-	bannerHeight   = 40
+	bannerHeight   = 40 // reserved vertical offset for controls below the banner
+	bannerImageW   = 197
+	bannerImageH   = 30
+	bannerLeft     = 10
+	bannerTop      = 5
 	compactHeight  = 210 + bannerHeight
 	expandedHeight = 430 + bannerHeight
-	stmSetImage    = 0x0172 // STM_SETIMAGE message
 )
 
 type MainWindow struct {
 	wnd            *ui.Main
-	imgBanner      *ui.Static
+	bannerDc       win.HDC // memory DC with the composited banner DIB selected (BitBlt source)
+	bannerBmp      win.HBITMAP
 	lblBroker      *ui.Static
 	txtBroker      *ui.Edit
 	lblUser        *ui.Static
@@ -106,13 +110,14 @@ func (w *MainWindow) create(cfg Config) {
 			Size(ui.Dpi(460, compactHeight)),
 	)
 
-	w.imgBanner = ui.NewStatic(
-		w.wnd,
-		ui.OptsStatic().
-			Position(ui.Dpi(10, 5)).
-			Size(ui.Dpi(197, 30)).
-			CtrlStyle(co.SS_BITMAP),
-	)
+	// The banner is alpha-blended onto the window background. A plain
+	// SS_BITMAP static control cannot respect the 32bpp alpha channel (it
+	// renders transparent pixels as black), so we paint it ourselves in
+	// WM_PAINT. The window class fills the background (dialog gray), so we
+	// only blend a fully-composited logo-rect on top.
+	w.wnd.On().WmPaint(func() {
+		w.paintBanner()
+	})
 
 	y := bannerHeight // vertical offset for all controls below the banner
 
@@ -386,35 +391,139 @@ func (w *MainWindow) events() {
 }
 
 func (w *MainWindow) loadBanner() {
+	// Guard against missing/broken GDI procedures on unusual systems: a
+	// cosmetic banner must never crash the app, so any failure here simply
+	// leaves the banner undrawn.
+	defer func() {
+		if r := recover(); r != nil {
+			w.bannerDc = 0
+			w.bannerBmp = 0
+		}
+	}()
+
 	data := assets.BannerBMP
 	if len(data) < 54 {
 		return
 	}
 
-	// BMP file header: pixel data offset at bytes 10-13
+	// BMP file header: pixel data offset at bytes 10-13.
 	pixelOffset := binary.LittleEndian.Uint32(data[10:14])
 
-	// BITMAPINFOHEADER starts at byte 14
-	pBmi := (*win.BITMAPINFO)(unsafe.Pointer(&data[14]))
+	// DIB header fields (BITMAPV5HEADER here): width/height at 18/22, bpp at 28.
+	srcW := int(binary.LittleEndian.Uint32(data[18:22]))
+	srcH := int32(binary.LittleEndian.Uint32(data[22:26]))
+	if srcH < 0 {
+		srcH = -srcH // negative height = top-down DIB
+	}
+	bpp := int(binary.LittleEndian.Uint16(data[28:30]))
+	if bpp != 32 || srcW != bannerImageW || int(srcH) != bannerImageH {
+		return
+	}
+	if int(pixelOffset)+srcW*int(srcH)*4 > len(data) {
+		return
+	}
+
+	// Build our own 32bpp DIB (dimensions from the constants), fully opaque.
+	var bih win.BITMAPINFOHEADER
+	bih.SetBiSize()
+	bih.Width = bannerImageW
+	bih.Height = -bannerImageH // top-down
+	bih.Planes = 1
+	bih.BitCount = 32
+	bih.Compression = co.BI_RGB
+	bmi := win.BITMAPINFO{BmiHeader: bih}
 
 	hBmp, pBits, err := win.HDC(0).CreateDIBSection(
-		pBmi,
+		&bmi,
 		co.DIB_COLORS_RGB,
 		win.HFILEMAP(0),
 		0,
 	)
-	if err != nil {
+	if err != nil || hBmp == 0 || pBits == nil {
 		return
 	}
 
-	// Copy pixel data into the DIB section
-	pixels := data[pixelOffset:]
-	dst := unsafe.Slice(pBits, len(pixels))
-	copy(dst, pixels)
+	// Background color of the dialog (COLOR_BTNFACE). Composite the logo onto
+	// this in software so the result is fully opaque and needs only a plain
+	// BitBlt to draw — no alpha blending required.
+	bg := win.GetSysColor(co.COLOR_BTNFACE)
+	bgB := byte(bg & 0xff)
+	bgG := byte((bg >> 8) & 0xff)
+	bgR := byte((bg >> 16) & 0xff)
 
-	w.imgBanner.Hwnd().SendMessage(
-		co.WM(stmSetImage),
-		win.WPARAM(co.IMAGE_BITMAP),
-		win.LPARAM(hBmp),
+	n := srcW * int(srcH) * 4
+	px := unsafe.Slice(pBits, n)
+	src := data[pixelOffset:]
+	for i := 0; i < n; i += 4 {
+		sb, sg, sr, a := src[i], src[i+1], src[i+2], src[i+3]
+		if a >= 250 { // effectively opaque: use source color
+			px[i], px[i+1], px[i+2], px[i+3] = sb, sg, sr, 255
+			continue
+		}
+		if a == 0 { // fully transparent: background
+			px[i], px[i+1], px[i+2], px[i+3] = bgB, bgG, bgR, 255
+			continue
+		}
+		// Partial alpha: blend source over background.
+		px[i] = uint8((uint16(sb)*uint16(a) + uint16(bgB)*uint16(255-a)) / 255)
+		px[i+1] = uint8((uint16(sg)*uint16(a) + uint16(bgG)*uint16(255-a)) / 255)
+		px[i+2] = uint8((uint16(sr)*uint16(a) + uint16(bgR)*uint16(255-a)) / 255)
+		px[i+3] = 255
+	}
+
+	// Select the DIB into a memory DC so it can be used as a BitBlt source.
+	hdcMem, err := win.HDC(0).CreateCompatibleDC()
+	if err != nil {
+		return
+	}
+	if _, err := hdcMem.SelectObjectBmp(hBmp); err != nil {
+		hdcMem.DeleteDC()
+		return
+	}
+
+	w.bannerDc = hdcMem
+	w.bannerBmp = hBmp
+
+	// Trigger a repaint so the banner is drawn immediately.
+	_ = w.wnd.Hwnd().InvalidateRect(nil, true)
+}
+
+// paintBanner is the WM_PAINT handler. It begins the paint cycle (which also
+// lets the window class fill the background) and draws the composited logo
+// rect on top. The drawing is wrapped so that if a GDI procedure is
+// unavailable on the system (e.g. an unavailable drawing procedure), we
+// degrade to no banner instead of crashing.
+func (w *MainWindow) paintBanner() {
+	if w.bannerDc == 0 {
+		return
+	}
+	var ps win.PAINTSTRUCT
+	hdc, err := w.wnd.Hwnd().BeginPaint(&ps)
+	if err != nil {
+		return
+	}
+	defer w.wnd.Hwnd().EndPaint(&ps)
+	defer func() {
+		if r := recover(); r != nil {
+			w.bannerDc = 0
+			w.bannerBmp = 0
+		}
+	}()
+	w.drawBanner(hdc)
+}
+
+// drawBanner copies the logo rect from the pre-composited memory DC onto the
+// given HDC with a plain BitBlt (the pixels are already fully opaque, so no
+// alpha blending is needed). source DIB.
+func (w *MainWindow) drawBanner(hdc win.HDC) {
+	if w.bannerDc == 0 {
+		return
+	}
+	_ = hdc.BitBlt(
+		win.POINT{X: int32(ui.DpiX(bannerLeft)), Y: int32(ui.DpiY(bannerTop))},
+		win.SIZE{Cx: int32(ui.DpiX(bannerImageW)), Cy: int32(ui.DpiY(bannerImageH))},
+		w.bannerDc,
+		win.POINT{},
+		co.ROP_SRCCOPY,
 	)
 }
